@@ -1,0 +1,10 @@
+llama.cpp/.git
+llama.cpp/.github
+llama.cpp/docs
+llama.cpp/pocs
+llama.cpp/ci
+tests
+README.md
+build.sh
+Dockerfile*
+.dockerignore

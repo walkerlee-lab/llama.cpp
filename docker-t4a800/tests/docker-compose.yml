@@ -1,0 +1,71 @@
+# llama.cpp CUDA 11.4 双架构镜像测试用 docker-compose（本机验证用）
+# 使用方式：
+#   docker compose -f tests/docker-compose.yml up llama-gpu-test
+#   docker compose -f tests/docker-compose.yml --profile server up llama-server-test
+#   验证完成后 docker compose -f tests/docker-compose.yml down
+
+services:
+  llama-gpu-test:
+    image: zz-llama-cpp-cuda114-ubuntu2004:b5401-t4a800
+    container_name: llama-gpu-test
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        echo "===== GPU 检测 ====="
+        nvidia-smi || echo "WARNING: nvidia-smi 不可用"
+        echo ""
+        echo "===== llama-cli 版本信息（应为 b5401 / bc098c3cf）====="
+        /app/llama-cli --version 2>&1 || true
+        echo ""
+        echo "===== GPU 推理测试 ====="
+        MODEL_FILE=$$(find /app/models -maxdepth 1 -name "*.gguf" -type f | head -n 1)
+        if [ -z "$$MODEL_FILE" ]; then
+          echo "ERROR: /app/models 目录下未找到 .gguf 模型文件"
+          exit 1
+        fi
+        echo "使用模型: $$MODEL_FILE"
+        /app/llama-cli -m "$$MODEL_FILE" -n 64 --temp 0 -p "Hello, I am a language model. I can" --no-warmup 2>&1
+        echo ""
+        echo "===== 测试完成 ====="
+    volumes:
+      # 挂载本地 Qwen3-8B GGUF 模型目录
+      - D:/docker/llama_cpp_cpu/Qwen3-8B-GGUF:/app/models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    stdin_open: false
+    tty: false
+
+  llama-server-test:
+    image: zz-llama-cpp-cuda114-ubuntu2004:b5401-t4a800
+    container_name: llama-server-test
+    entrypoint: ["/app/llama-server"]
+    command:
+      - -m
+      - /app/models/Qwen3-8B-Q4_K_M.gguf
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8080"
+      - -c
+      - "4096"
+      - --jinja
+    ports:
+      - "8080:8080"
+    volumes:
+      - D:/docker/llama_cpp_cpu/Qwen3-8B-GGUF:/app/models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    stdin_open: false
+    tty: false
+    profiles:
+      - server
